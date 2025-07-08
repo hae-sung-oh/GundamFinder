@@ -2,16 +2,12 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, font
 import threading
 import queue
-import time
 import re
 import traceback
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait, Select
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 # 롯데마트/토이저러스 매장 정보 (가나다 순)
@@ -42,12 +38,11 @@ STORE_DATA = {
     "강원": {"석사점": "804", "원주점": "801", "춘천점": "802"},
     "충북": {"상당점": "519", "서청주점": "513", "제천점": "509", "청주점": "501", "충주점": "505"},
     #TODO: Write for the rest of the regions
-    # ...
 }
 
 def get_stock_from_html(html):
     soup = BeautifulSoup(html, 'html.parser')
-    result_list = soup.find('ul', class_='list-result')
+    result_list = soup.find('body')
     if not result_list:
         return []
     all_products = result_list.find_all('li')
@@ -249,35 +244,27 @@ class GundamStockCheckerApp:
             driver = webdriver.Chrome(service=service, options=options)
             wait = WebDriverWait(driver, 10)
 
-            driver.get("https://company.lottemart.com/mobiledowa/#")
+            search_url = "https://company.lottemart.com/mobiledowa/inc/asp/search_product_list.asp"
 
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.toggle"))).click()
-            time.sleep(0.5)
-            
-            Select(wait.until(EC.visibility_of_element_located((By.ID, "p_area")))).select_by_visible_text(region_name)
-            time.sleep(1)
-
-            Select(wait.until(EC.visibility_of_element_located((By.ID, "p_market")))).select_by_visible_text(store_name)
-            time.sleep(0.5)
+            payload = {
+                "p_market": STORE_DATA[region_name][store_name],
+                "p_schWord": "",
+                "page" : 1
+            }
             
             for term in search_terms:
-                search_input = wait.until(EC.visibility_of_element_located((By.ID, "p_schWord")))
-                search_input.clear()
-                search_input.send_keys(term)
-                driver.find_element(By.CSS_SELECTOR, "a.search").click()
-                time.sleep(1)
+                payload["p_schWord"] = term
+                payload["page"] = 1
+
+                items = []
                 while True:
-                    try:
-                        more_button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.paging > a")))
-                        is_last_page = '더보기' not in more_button.text or (re.search(r'\((\d+)/(\d+)\)', more_button.text) and re.search(r'\((\d+)/\1\)', more_button.text))
-                        driver.execute_script("arguments[0].click();", more_button)
-                        time.sleep(1)
-                        if is_last_page: break
-                    except TimeoutException: break
-                
-                items = get_stock_from_html(driver.page_source)
-                if items:
-                    all_found_items.extend(items)
+                    driver.get(search_url + '?' + '&'.join(f"{k}={v}" for k, v in payload.items()))
+                    if "해당 페이지를 찾을 수 없습니다" in driver.page_source:
+                        break
+                    items += get_stock_from_html(driver.page_source)
+                    if items:
+                        all_found_items.extend(items)
+                    payload["page"] += 1
 
             unique_items = list({frozenset(item.items()): item for item in all_found_items}.values())
             self.queue.put({'result': unique_items})
