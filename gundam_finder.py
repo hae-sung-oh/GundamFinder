@@ -37,8 +37,61 @@ STORE_DATA = {
     },
     "강원": {"석사점": "804", "원주점": "801", "춘천점": "802"},
     "충북": {"상당점": "519", "서청주점": "513", "제천점": "509", "청주점": "501", "충주점": "505"},
-    #TODO: Write for the rest of the regions
+    "충남": {"당진점": "515",
+           "서산점": "506",
+           "성정점": "507",
+           "아산터미널점": "512",
+           "홍성점": "518", },
+    "대전": {"노은점": "516",
+           "대덕점": "508",
+           "서대전점": "504", },
+    "경북": {"구미점": "613",
+           "김천점": "647",
+           "포항점": "623", },
+    "경남": {"거제점": "645",
+           "김해점": "642",
+           "맥스 창원중앙점": "112",
+           "마산점": "607",
+           "삼계점": "639",
+           "시티세븐점": "620",
+           "양덕점": "643",
+           "웅상점": "610",
+           "장유점": "609",
+           "진주점": "648",
+           "진해점": "611",
+           "통영점": "608", },
+    "대구": {"대구율하점": "629",
+           "토이저러스 대구율하점": "649",
+           "토이저러스 대구죽전점": "664", },
+    "부산": {"광복점": "655",
+           "동래점": "618",
+           "동부산점": "658",
+           "토이저러스 동부산점": "662",
+           "부산점": "626",
+           "사상점": "612",
+           "사하점": "603",
+           "화명점": "605", },
+    "울산": {"울산점": "601",
+           "진장점": "614", },
+    "전북": {"군산점": "707",
+           "남원점": "713",
+           "맥스 송천점": "110",
+           "익산점": "702",
+           "전주점": "708",
+           "정읍점": "709", },
+    "전남": {"나주점": "719",
+           "남악점": "724",
+           "맥스 목포점": "109",
+           "여수점": "705",
+           "여천점": "710", },
+    "광주": {"맥스 상무점": "108",
+           "수완점": "715",
+           "토이저러스 수완점": "722",
+           "월드컵점": "706",
+           "첨단점": "704", },
+    "제주": {"제주점": "852", },
 }
+
 
 def get_stock_from_html(html):
     soup = BeautifulSoup(html, 'html.parser')
@@ -61,6 +114,7 @@ def get_stock_from_html(html):
             if stock != '품절':
                 in_stock_items.append({"name": name, "price": price, "stock": stock})
     return in_stock_items
+
 
 class GundamStockCheckerApp:
     def __init__(self, root):
@@ -96,17 +150,19 @@ class GundamStockCheckerApp:
 
         self.grades = ["EG", "SD", "HG", "RG", "MG", "PG"]
         self.grade_vars = {grade: tk.BooleanVar() for grade in self.grades}
-        
+
         grade_frame = ttk.Frame(store_frame)
         grade_frame.grid(row=1, column=0, columnspan=4, pady=(10, 5))
 
         self.select_all_var = tk.BooleanVar()
-        ttk.Checkbutton(grade_frame, text="모두 선택", variable=self.select_all_var, command=self.toggle_select_all).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(grade_frame, text="모두 선택", variable=self.select_all_var, command=self.toggle_select_all).pack(
+            side=tk.LEFT, padx=5)
         ttk.Button(grade_frame, text="모두 해제", command=self.deselect_all_grades).pack(side=tk.LEFT, padx=5)
         ttk.Separator(grade_frame, orient='vertical').pack(side=tk.LEFT, fill='y', padx=10, pady=5)
-        
+
         for grade in self.grades:
-            ttk.Checkbutton(grade_frame, text=grade, variable=self.grade_vars[grade], command=self.update_select_all_status).pack(side=tk.LEFT, padx=5)
+            ttk.Checkbutton(grade_frame, text=grade, variable=self.grade_vars[grade],
+                            command=self.update_select_all_status).pack(side=tk.LEFT, padx=5)
 
         self.start_button = ttk.Button(main_frame, text="재고 확인 시작", command=self.start_scraping_thread)
         self.start_button.pack(pady=10, fill=tk.X, expand=False)
@@ -118,16 +174,16 @@ class GundamStockCheckerApp:
         default_font = font.nametofont("TkDefaultFont")
         bold_font = font.Font(family=default_font.cget("family"), size=default_font.cget("size"), weight="bold")
         self.log_text.tag_configure('bold', font=bold_font)
-        
+
     def toggle_select_all(self):
         is_checked = self.select_all_var.get()
         for var in self.grade_vars.values():
             var.set(is_checked)
-            
+
     def update_select_all_status(self):
         all_checked = all(var.get() for var in self.grade_vars.values())
         self.select_all_var.set(all_checked)
-        
+
     def deselect_all_grades(self):
         self.select_all_var.set(False)
         for var in self.grade_vars.values():
@@ -156,7 +212,7 @@ class GundamStockCheckerApp:
         self.log_text.configure(state='normal')
         self.log_text.delete(1.0, tk.END)
         self.log_text.configure(state='disabled')
-        
+
         region_name = self.region_combo.get()
         store_name = self.store_combo.get()
 
@@ -164,7 +220,7 @@ class GundamStockCheckerApp:
             self.log("‼️ 지역과 매장을 모두 선택해주세요.\n")
             self.start_button.config(state='normal')
             return
-            
+
         selected_grades = [grade for grade, var in self.grade_vars.items() if var.get()]
 
         if not selected_grades:
@@ -179,10 +235,10 @@ class GundamStockCheckerApp:
             self.start_button.config(state='normal')
             return
 
-        threading.Thread(target=self.worker_thread_scraping, 
-                         args=(driver_path, region_name, store_name, selected_grades), 
+        threading.Thread(target=self.worker_thread_scraping,
+                         args=(driver_path, region_name, store_name, selected_grades),
                          daemon=True).start()
-        
+
         self.process_queue()
 
     def process_queue(self):
@@ -191,7 +247,7 @@ class GundamStockCheckerApp:
             if message == "TASK_COMPLETE":
                 self.start_button.config(state='normal')
             elif isinstance(message, dict) and 'result' in message:
-                 self.display_results(message['result'])
+                self.display_results(message['result'])
             else:
                 self.log(str(message))
         except queue.Empty:
@@ -200,19 +256,19 @@ class GundamStockCheckerApp:
             self.root.after(100, self.process_queue)
 
     def display_results(self, results):
-        self.log("\n" + "="*50 + "\n")
+        self.log("\n" + "=" * 50 + "\n")
         self.log(" 검색 결과 ".center(47, "=") + "\n")
-        self.log("="*50 + "\n")
+        self.log("=" * 50 + "\n")
 
         if results:
             self.log(f"\n총 {len(results)}개의 재고 보유 건담을 찾았습니다!\n\n")
             for item in sorted(results, key=lambda x: x['name']):
                 self.log_text.configure(state='normal')
-                
+
                 self.log_text.insert(tk.END, "- 상품명: ")
                 self.log_text.insert(tk.END, item['name'], 'bold')
                 self.log_text.insert(tk.END, "\n")
-                
+
                 self.log_text.insert(tk.END, f"  - 가격: {item['price']}\n")
                 self.log_text.insert(tk.END, f"  - 재고: {item['stock']}\n")
                 self.log_text.insert(tk.END, "-" * 25 + "\n")
@@ -229,7 +285,8 @@ class GundamStockCheckerApp:
             search_terms = []
             for grade in grades_to_search:
                 if grade == 'HG':
-                    search_terms.append('건담 HG'); search_terms.append('건담 HGUC')
+                    search_terms.append('건담 HG');
+                    search_terms.append('건담 HGUC')
                 else:
                     search_terms.append(f'건담 {grade}')
 
@@ -239,7 +296,7 @@ class GundamStockCheckerApp:
             options.add_argument("headless")
             options.add_argument('--log-level=3')
             options.add_experimental_option('excludeSwitches', ['enable-logging'])
-            
+
             service = Service(executable_path=driver_path)
             driver = webdriver.Chrome(service=service, options=options)
             wait = WebDriverWait(driver, 10)
@@ -249,9 +306,9 @@ class GundamStockCheckerApp:
             payload = {
                 "p_market": STORE_DATA[region_name][store_name],
                 "p_schWord": "",
-                "page" : 1
+                "page": 1
             }
-            
+
             for term in search_terms:
                 payload["p_schWord"] = term
                 payload["page"] = 1
@@ -276,6 +333,7 @@ class GundamStockCheckerApp:
             if driver:
                 driver.quit()
             self.queue.put("TASK_COMPLETE")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
