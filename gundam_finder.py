@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, font
 import threading
 import queue
+import time
 import re
 import traceback
 import ctypes
@@ -10,8 +11,11 @@ import os
 import webbrowser
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 
 def resource_path(relative_path):
