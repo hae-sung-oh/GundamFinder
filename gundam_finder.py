@@ -225,9 +225,9 @@ class GundamStockCheckerApp:
         
         info_data = {
             "프로그램 이름": "롯데마트 건담 재고 파인더",
-            "버전": "2.0.0",
+            "버전": "2.1.0",
             "제작자": "오해성",
-            "기여자": "(추가예정)",
+            "기여자": "Github @Cass07",
             "연락처": "haesungoh0111@google.com",
             "설명": "롯데마트의 건담 재고를 쉽게 확인할 수 있도록 돕는 프로그램입니다.",
             "재고 홈페이지": "https://company.lottemart.com/mobiledowa/#",

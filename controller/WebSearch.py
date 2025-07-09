@@ -71,6 +71,7 @@ class WebSearch:
                 queue.put({'progress': (i, total_stores)})
                 queue.put(f"({i}/{total_stores}) '{store.region} {store.name}' 검색 중...\n")
                 i += 1
+
                 items = self.__scrap(driver, store, keyword)
                 if items:
                     store_results.append(StoreResult(store, items))
@@ -108,7 +109,7 @@ class WebSearch:
     def __get_stock_from_html(self, html):
         soup = BeautifulSoup(html, 'html.parser')
         result_list = soup.find('body')
-        if not result_list:
+        if not result_list or not result_list.contents or str(result_list) == '<body></body>':
             return False
         all_products = result_list.find_all('li')
         in_stock_items = []
