@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, font
 import threading
 import queue
-import time
 import re
 import traceback
 import ctypes
@@ -10,13 +9,13 @@ import sys
 import os
 import webbrowser
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait, Select
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+
 from webdriver_manager.chrome import ChromeDriverManager
+
+from controller.WebSearch import WebSearch
+from model.SearchItem import SearchItem
+from model.Store import Store
+
 
 def resource_path(relative_path):
     try:
@@ -74,9 +73,10 @@ STORE_DATA = {
     "제주": {"제주점": "852"}
 }
 
+
 def get_stock_from_html(html):
     soup = BeautifulSoup(html, 'html.parser')
-    result_list = soup.find('ul', class_='list-result')
+    result_list = soup.find('body')
     if not result_list:
         return []
     all_products = result_list.find_all('li')
@@ -93,8 +93,9 @@ def get_stock_from_html(html):
             price = price_th.find_next_sibling('td').text.strip()
             stock = stock_th.find_next_sibling('td').text.strip()
             if stock != '품절':
-                in_stock_items.append({"name": name, "price": price, "stock": stock})
+                in_stock_items.append(SearchItem(name, price, stock))
     return in_stock_items
+
 
 class GundamStockCheckerApp:
     def __init__(self, root):
@@ -102,6 +103,8 @@ class GundamStockCheckerApp:
         self.root.title("롯데마트 건담 재고 파인더")
         self.root.geometry("700x750")
         self.root.minsize(600, 500)
+
+        self.web_search = WebSearch()
         
         try:
             icon_path = resource_path("gundam_icon.ico")
@@ -183,9 +186,10 @@ class GundamStockCheckerApp:
         ttk.Checkbutton(grade_frame, text="모두 선택", variable=self.select_all_var, command=self.toggle_select_all).pack(side=tk.LEFT, padx=5)
         # ttk.Button(grade_frame, text="모두 해제", command=self.deselect_all_grades).pack(side=tk.LEFT, padx=5)
         ttk.Separator(grade_frame, orient='vertical').pack(side=tk.LEFT, fill='y', padx=10, pady=5)
-        
+
         for grade in self.grades:
-            ttk.Checkbutton(grade_frame, text=grade, variable=self.grade_vars[grade], command=self.update_select_all_status).pack(side=tk.LEFT, padx=5)
+            ttk.Checkbutton(grade_frame, text=grade, variable=self.grade_vars[grade],
+                            command=self.update_select_all_status).pack(side=tk.LEFT, padx=5)
 
     def create_tab2_widgets(self, parent_frame):
         search_frame = ttk.LabelFrame(parent_frame, text="검색어 입력", padding="10")
@@ -221,9 +225,9 @@ class GundamStockCheckerApp:
         
         info_data = {
             "프로그램 이름": "롯데마트 건담 재고 파인더",
-            "버전": "2.0.0",
+            "버전": "2.1.0",
             "제작자": "오해성",
-            "기여자": "(추가예정)",
+            "기여자": "Github @Cass07",
             "연락처": "haesungoh0111@google.com",
             "설명": "롯데마트의 건담 재고를 쉽게 확인할 수 있도록 돕는 프로그램입니다.",
             "재고 홈페이지": "https://company.lottemart.com/mobiledowa/#",
@@ -337,7 +341,7 @@ class GundamStockCheckerApp:
             self.log("‼️ 지역과 매장을 모두 선택해주세요.\n", 'error')
             self.start_button.config(state='normal')
             return
-            
+
         selected_grades = [grade for grade, var in self.grade_vars.items() if var.get()]
 
         if not selected_grades:
@@ -370,7 +374,7 @@ class GundamStockCheckerApp:
         threading.Thread(target=self.worker_thread_scraping_all_stores, 
                          args=(driver_path, keyword, selected_regions), 
                          daemon=True).start()
-        
+
         self.process_queue()
 
     def process_queue(self):
@@ -404,13 +408,13 @@ class GundamStockCheckerApp:
 
         if results:
             self.log(f"\n총 {len(results)}개의 건담을 찾았습니다!\n\n")
-            for item in sorted(results, key=lambda x: x['name']):
+            for item in sorted(results, key=lambda x: x.name):
                 self.log_text.configure(state='normal')
                 self.log_text.insert(tk.END, "- 상품명: ")
-                self.log_text.insert(tk.END, item['name'], 'bold')
+                self.log_text.insert(tk.END, item.name, 'bold')
                 self.log_text.insert(tk.END, "\n")
-                self.log_text.insert(tk.END, f"  - 가격: {item['price']}\n")
-                self.log_text.insert(tk.END, f"  - 재고: {item['stock']}\n")
+                self.log_text.insert(tk.END, f"  - 가격: {item.price}\n")
+                self.log_text.insert(tk.END, f"  - 재고: {item.stock}\n")
                 self.log_text.insert(tk.END, "-" * 25 + "\n")
                 self.log_text.see(tk.END)
                 self.log_text.configure(state='disabled')
@@ -423,17 +427,17 @@ class GundamStockCheckerApp:
         self.log("="*50 + "\n")
         
         if results:
-            total_items = sum(len(items) for items in results.values())
+            total_items = sum(len(store_result.search_items) for store_result in results)
             self.log(f"\n총 {len(results)}개 지점에서 {total_items}개의 재고를 발견했습니다!\n\n")
-            for store_name, items in sorted(results.items()):
-                self.log(f"{store_name}\n", 'success')
-                for item in sorted(items, key=lambda x: x['name']):
+            for store_result in sorted(results, key=lambda x: x.store.name):
+                self.log(f"{store_result.store.name}\n", 'success')
+                for item in sorted(store_result.search_items, key=lambda x: x.name):
                     self.log_text.configure(state='normal')
                     self.log_text.insert(tk.END, "  - 상품명: ")
-                    self.log_text.insert(tk.END, item['name'], 'bold')
+                    self.log_text.insert(tk.END, item.name, 'bold')
                     self.log_text.insert(tk.END, "\n")
-                    self.log_text.insert(tk.END, f"    - 가격: {item['price']}\n")
-                    self.log_text.insert(tk.END, f"    - 재고: {item['stock']}\n")
+                    self.log_text.insert(tk.END, f"    - 가격: {item.price}\n")
+                    self.log_text.insert(tk.END, f"    - 재고: {item.stock}\n")
                     self.log_text.insert(tk.END, "-" * 25 + "\n")
                     self.log_text.see(tk.END)
                     self.log_text.configure(state='disabled')
@@ -442,153 +446,45 @@ class GundamStockCheckerApp:
             self.log("\n재고가 없습니다.")
 
     def worker_thread_scraping_by_store(self, driver_path, region_name, store_name, grades_to_search):
-        driver = None
-        all_found_items = []
-        try:
-            search_terms = []
-            for grade in grades_to_search:
-                if grade == 'HG':
-                    search_terms.append('건담 HG'); search_terms.append('건담 HGUC') ; search_terms.append('건담 HGCE')
-                    search_terms.append('건담 HGFC') ; search_terms.append('건담 HGAW') ; search_terms.append('건담 HGAC')
-                    search_terms.append('건담 HGBD')
-                elif grade == 'MG':
-                    search_terms.append('건담 MG'); search_terms.append('건담 MGEX') ; search_terms.append('건담 MGSD')
-                elif grade == 'SD':
-                    search_terms.append('건담 SD'); search_terms.append('건담 SDCS') ; search_terms.append('건담 SDEX') ; search_terms.append('건담 SDWH')
-                else:
-                    search_terms.append(f'건담 {grade}')
-            
-            self.queue.put("재고를 검색중입니다. 잠시만 기다려주세요...\n")
-            options = webdriver.ChromeOptions()
-            options.add_argument("--start-maximized")
-            options.add_argument("headless")
-            options.add_argument('--log-level=3')
-            options.add_experimental_option('excludeSwitches', ['enable-logging'])
-            
-            service = Service(executable_path=driver_path)
-            driver = webdriver.Chrome(service=service, options=options)
-            wait = WebDriverWait(driver, 10)
+        self.queue.put("재고를 검색중입니다. 잠시만 기다려주세요...\n")
 
-            driver.get("https://company.lottemart.com/mobiledowa/#")
-
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.toggle"))).click()
-            time.sleep(0.2)
-            
-            Select(wait.until(EC.visibility_of_element_located((By.ID, "p_area")))).select_by_visible_text(region_name)
-            time.sleep(0.2)
-            Select(wait.until(EC.visibility_of_element_located((By.ID, "p_market")))).select_by_visible_text(store_name)
-            time.sleep(0.2)
-            
-            for term in search_terms:
-                search_input = wait.until(EC.visibility_of_element_located((By.ID, "p_schWord")))
-                search_input.clear()
-                search_input.send_keys(term)
-                driver.find_element(By.CSS_SELECTOR, "a.search").click()
-                time.sleep(0.2)
-                while True:
-                    try:
-                        more_button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.paging > a")))
-                        is_last_page = '더보기' not in more_button.text or (re.search(r'\((\d+)/(\d+)\)', more_button.text) and re.search(r'\((\d+)/\1\)', more_button.text))
-                        driver.execute_script("arguments[0].click();", more_button)
-                        time.sleep(0.2)
-                        if is_last_page: break
-                    except TimeoutException: break
-                
-                items = get_stock_from_html(driver.page_source)
-                if items:
-                    all_found_items.extend(items)
-
-            unique_items = list({frozenset(item.items()): item for item in all_found_items}.values())
+        store = Store(STORE_DATA[region_name][store_name], store_name, region_name)
+        try :
+            unique_items = self.web_search.worker_thread_scraping_by_store(
+            driver_path, store, grades_to_search
+            )
             self.queue.put({'result_by_store': unique_items})
-
-        except Exception:
+        except Exception as e:
             self.queue.put("\n‼️ 스크립트 실행 중 심각한 오류가 발생했습니다.\n")
             self.queue.put(traceback.format_exc())
         finally:
-            if driver:
-                driver.quit()
             self.queue.put("TASK_COMPLETE")
+
             
     def worker_thread_scraping_all_stores(self, driver_path, keyword, selected_regions):
-        driver = None
-        results_by_store = {}
-        try:
-            self.queue.put("선택한 지역의 전체 지점 검색을 시작합니다. 잠시만 기다려주세요...\n")
-            options = webdriver.ChromeOptions()
-            options.add_argument("--start-maximized")
-            options.add_argument("headless")
-            options.add_argument('--log-level=3')
-            options.add_experimental_option('excludeSwitches', ['enable-logging'])
-            
-            service = Service(executable_path=driver_path)
-            driver = webdriver.Chrome(service=service, options=options)
-            wait = WebDriverWait(driver, 10)
-            
-            all_stores_to_search = []
-            for region in selected_regions:
-                if region in STORE_DATA:
-                    for store_name, store_code in STORE_DATA[region].items():
-                        all_stores_to_search.append({'region': region, 'name': store_name, 'code': store_code})
-            
-            total_stores = len(all_stores_to_search)
-            self.queue.put({'progress': (0, total_stores)})
-            
-            driver.get("https://company.lottemart.com/mobiledowa/#")
+        self.queue.put("선택한 지역의 전체 지점 검색을 시작합니다. 잠시만 기다려주세요...\n")
 
-            current_region = None
-            for i, store_info in enumerate(all_stores_to_search):
-                self.queue.put({'progress': (i + 1, total_stores)})
-                self.queue.put(f"({i+1}/{total_stores}) '{store_info['region']} {store_info['name']}' 검색 중...\n")
-                
-                try:
-                    if i == 0 or current_region == None:
-                        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.toggle"))).click()
-                        time.sleep(0.2)
-                    
-                    if store_info['region'] != current_region:
-                        Select(wait.until(EC.visibility_of_element_located((By.ID, "p_area")))).select_by_visible_text(store_info['region'])
-                        current_region = store_info['region']
-                        time.sleep(0.2) 
+        stores = []
+        for region in selected_regions:
+            if region in STORE_DATA:
+                for store_name, store_code in STORE_DATA[region].items():
+                    stores.append(Store(store_code, store_name, region))
 
-                    Select(wait.until(EC.visibility_of_element_located((By.ID, "p_market")))).select_by_visible_text(store_info['name'])
-                    time.sleep(0.2)
-                    
-                    search_input = wait.until(EC.visibility_of_element_located((By.ID, "p_schWord")))
-                    search_input.clear()
-                    search_input.send_keys(keyword)
-                        
-                    driver.find_element(By.CSS_SELECTOR, "a.search").click()
-                    time.sleep(0.2)
-                    
-                    while True:
-                        try:
-                            more_button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.paging > a")))
-                            is_last_page = '더보기' not in more_button.text or (re.search(r'\((\d+)/(\d+)\)', more_button.text) and re.search(r'\((\d+)/\1\)', more_button.text))
-                            driver.execute_script("arguments[0].click();", more_button)
-                            time.sleep(0.2)
-                            if is_last_page: break
-                        except TimeoutException: break
-                    
-                    items = get_stock_from_html(driver.page_source)
-                    if items:
-                        full_store_name = f"{store_info['region']} - {store_info['name']}"
-                        results_by_store[full_store_name] = items
-                    driver.back()
-                    time.sleep(0.2)
-                except Exception as e:
-                    driver.get("https://company.lottemart.com/mobiledowa/#")
-                    current_region = None
-                    continue
+        total_stores = len(stores)
+        self.queue.put({'progress': (0, total_stores)})
 
-            self.queue.put({'result_all_stores': results_by_store})
+        try :
+            results = self.web_search.worker_thread_scraping_all_stores(
+                driver_path, stores, keyword, self.queue
+            )
 
+            self.queue.put({'result_all_stores': results})
         except Exception:
             self.queue.put("\n‼️ 스크립트 실행 중 심각한 오류가 발생했습니다.\n")
             self.queue.put(traceback.format_exc())
         finally:
-            if driver:
-                driver.quit()
             self.queue.put("TASK_COMPLETE")
+
 
 if __name__ == "__main__":
     if sys.platform.startswith('win'):
