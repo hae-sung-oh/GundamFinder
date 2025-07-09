@@ -441,7 +441,6 @@ class GundamStockCheckerApp:
                     self.log_text.insert(tk.END, "-" * 25 + "\n")
                     self.log_text.see(tk.END)
                     self.log_text.configure(state='disabled')
-                self.log("-" * 35 + "\n")
         else:
             self.log("\n재고가 없습니다.")
 
@@ -489,7 +488,7 @@ class GundamStockCheckerApp:
 if __name__ == "__main__":
     if sys.platform.startswith('win'):
         try:
-            myappid = 'ohs.gundam.finder.2.0' 
+            myappid = 'ohs.gundam.finder.2.1' 
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception as e:
             print(f"알림: 작업 표시줄 아이콘 설정에 실패했습니다: {e}")
