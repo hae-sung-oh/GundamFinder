@@ -71,7 +71,8 @@ class WebSearch:
                 queue.put({'progress': (i, total_stores)})
                 queue.put(f"({i}/{total_stores}) '{store.region} {store.name}' 검색 중...\n")
                 i += 1
-                items = self.__scrap(driver, store, keyword, queue)
+
+                items = self.__scrap(driver, store, keyword)
                 if items:
                     store_results.append(StoreResult(store, items))
         finally:
@@ -80,7 +81,7 @@ class WebSearch:
 
         return store_results
 
-    def __scrap(self, driver, store, keyword, queue):
+    def __scrap(self, driver, store, keyword):
         all_found_items = []
 
         search_url = "https://company.lottemart.com/mobiledowa/inc/asp/search_product_list.asp"
@@ -97,7 +98,7 @@ class WebSearch:
             print(driver.page_source)
             if "해당 페이지를 찾을 수 없습니다" in driver.page_source:
                 break
-            result_list = self.__get_stock_from_html(driver.page_source, queue)
+            result_list = self.__get_stock_from_html(driver.page_source)
             if result_list is False:
                 break
             items += result_list
@@ -105,7 +106,7 @@ class WebSearch:
         unique_items = self.__remove_duplicates(items)
         return unique_items
 
-    def __get_stock_from_html(self, html, queue):
+    def __get_stock_from_html(self, html):
         soup = BeautifulSoup(html, 'html.parser')
         result_list = soup.find('body')
         if not result_list or not result_list.contents or str(result_list) == '<body></body>':
