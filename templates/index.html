@@ -1,60 +1,97 @@
-{% extends 'base.html' %} {% block content %}
-<h2 class="mb-4">롯데마트 건담 재고 파인더</h2>
-<form method="post" action="/search" id="searchForm">
-  <div class="row mb-3">
-    <div class="col-md-4">
-      <label for="region" class="form-label">지역 선택</label>
-      <select class="form-select" id="region" name="region" required>
-        <option value="">지역 선택</option>
-        {% for region in regions %}
-        <option value="{{ region }}">{{ region }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-4">
-      <label for="store" class="form-label">매장 선택</label>
-      <select class="form-select" id="store" name="store">
-        <option value="">매장 선택</option>
-        <!-- JS로 동적 변경 -->
-      </select>
-    </div>
-    <div class="col-md-4">
-      <label for="grades" class="form-label">등급 선택</label>
-      <div id="grades">
-        {% for grade in grades %}
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="checkbox" name="grades" value="{{ grade }}" id="grade-{{ grade }}" />
-          <label class="form-check-label" for="grade-{{ grade }}">{{ grade }}</label>
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4">건담 재고 파인더</h2>
+<ul class="nav nav-tabs" id="searchTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if not active_tab or active_tab == 'by_store' %}active{% endif %}" id="by-store-tab" data-bs-toggle="tab" data-bs-target="#by-store" type="button" role="tab" aria-controls="by-store" aria-selected="true">지점별 등급 검색</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'by_region' %}active{% endif %}" id="by-region-tab" data-bs-toggle="tab" data-bs-target="#by-region" type="button" role="tab" aria-controls="by-region" aria-selected="false">전체 지점 상품 검색</button>
+  </li>
+</ul>
+<div class="tab-content mt-3" id="searchTabContent">
+  <!-- 지점별 등급 검색 탭 -->
+  <div class="tab-pane fade {% if not active_tab or active_tab == 'by_store' %}show active{% endif %}" id="by-store" role="tabpanel" aria-labelledby="by-store-tab">
+    <form method="post" action="/search_by_store" id="searchByStoreForm">
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label for="region" class="form-label">지역 선택</label>
+          <select class="form-select" id="region" name="region" required>
+            <option value="">지역 선택</option>
+            {% for region in regions %}
+            <option value="{{ region }}" {% if region == selected_region %}selected{% endif %}>{{ region }}</option>
+            {% endfor %}
+          </select>
         </div>
-        {% endfor %}
+        <div class="col-md-4">
+          <label for="store" class="form-label">매장 선택</label>
+          <select class="form-select" id="store" name="store">
+            <option value="">매장 선택</option>
+            {% if selected_region %}
+              {% for store in store_data[selected_region].keys() %}
+                <option value="{{ store }}" {% if store == selected_store %}selected{% endif %}>{{ store }}</option>
+              {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">등급 선택</label>
+          <div id="grades">
+            {% for grade in grades %}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" name="grades" value="{{ grade }}" id="grade-{{ grade }}" {% if selected_grades and grade in selected_grades %}checked{% endif %}/>
+              <label class="form-check-label" for="grade-{{ grade }}">{{ grade }}</label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
-    </div>
+      <button type="submit" class="btn btn-primary">재고 확인 시작</button>
+    </form>
+    <hr />
+    {% if active_tab == 'by_store' and results is defined %}
+      {% if results|length == 0 %}
+        <div class="alert alert-warning mt-3">검색된 제품이 없습니다.</div>
+      {% else %}
+        {% include 'results.html' %}
+      {% endif %}
+    {% endif %}
   </div>
-  <div class="row mb-3">
-    <div class="col-md-6">
-      <label for="keyword" class="form-label">상품명(키워드) 검색</label>
-      <input type="text" class="form-control" id="keyword" name="keyword" placeholder="예: 건담, Exia 등" />
-    </div>
-    <div class="col-md-6">
-      <label for="regions" class="form-label">전체 지점 상품 검색 (지역 다중선택)</label>
-      <select class="form-select" id="regions" name="regions" multiple>
-        {% for region in regions %}
-        <option value="{{ region }}">{{ region }}</option>
-        {% endfor %}
-      </select>
-      <div class="form-text">Ctrl(⌘) + 클릭으로 여러 지역 선택</div>
-    </div>
+  <!-- 전체 지점 상품 검색 탭 -->
+  <div class="tab-pane fade {% if active_tab == 'by_region' %}show active{% endif %}" id="by-region" role="tabpanel" aria-labelledby="by-region-tab">
+    <form method="post" action="/search_by_region" id="searchByRegionForm">
+      <div class="mb-3">
+        <label for="keyword" class="form-label">상품명(키워드) 검색</label>
+        <input type="text" class="form-control" id="keyword" name="keyword" placeholder="예: 건담, Exia 등" value="{{ selected_keyword or '' }}" required />
+      </div>
+      <div class="mb-3">
+        <label class="form-label">검색할 지역 선택</label>
+        <div>
+          {% for region in regions %}
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" name="regions" value="{{ region }}" id="region-{{ region }}" {% if selected_regions and region in selected_regions %}checked{% endif %}>
+            <label class="form-check-label" for="region-{{ region }}">{{ region }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">재고 확인 시작</button>
+    </form>
+    <hr />
+    {% if active_tab == 'by_region' and results is defined %}
+      {% if results|length == 0 %}
+        <div class="alert alert-warning mt-3">검색된 제품이 없습니다.</div>
+      {% else %}
+        {% include 'results.html' %}
+      {% endif %}
+    {% endif %}
   </div>
-  <button type="submit" class="btn btn-primary">재고 확인 시작</button>
-</form>
-<hr />
-{% if results %} {% if results|length == 0 %}
+</div>
+{% endblock %}
+
+{% block script %}
 <script>
-  alert("현재 건담 재고가 없습니다.")
-</script>
-{% else %} {% include 'results.html' %} {% endif %} {% endif %} {% endblock %} {% block script %}
-<script>
-  // 지역별 매장 동적 변경
+  // 지역별 매장 동적 변경 (지점별 등급 검색 탭)
   const storeData = {{ store_data | tojson | safe }};
   document.getElementById('region').addEventListener('change', function() {
     const region = this.value;

@@ -53,22 +53,77 @@ def search():
         store_code = STORE_DATA[region][store]
         store_obj = Store(int(store_code), store, region)
         if keyword:
-            # 상품명 직접 검색
             items = web_search.worker_thread_scraping_by_store(
-                driver_path=None,  # 실제 환경에서는 드라이버 경로 필요
+                driver_path=None,
                 store=store_obj,
                 grades=[keyword]
             )
         else:
-            # 등급별 검색
             items = web_search.worker_thread_scraping_by_store(
-                driver_path=None,  # 실제 환경에서는 드라이버 경로 필요
+                driver_path=None,
                 store=store_obj,
                 grades=search_grades
             )
         results.append({'store': store, 'items': items})
-    # 전체 지점 상품 검색
     elif keyword and regions_multi:
+        for reg in regions_multi:
+            for store_name, store_code in STORE_DATA[reg].items():
+                store_obj = Store(int(store_code), store_name, reg)
+                items = web_search.worker_thread_scraping_by_store(
+                    driver_path=None,
+                    store=store_obj,
+                    grades=[keyword]
+                )
+                results.append({'store': store_name, 'items': items})
+    return render_template('index.html',
+        regions=list(STORE_DATA.keys()),
+        grades=GRADES,
+        store_data=STORE_DATA,
+        results=results,
+        selected_region=region,
+        selected_store=store,
+        selected_grades=grades,
+        selected_keyword=keyword,
+        selected_regions=regions_multi
+    )
+
+@app.route('/search_by_store', methods=['POST'])
+def search_by_store():
+    region = request.form.get('region')
+    store = request.form.get('store')
+    grades = request.form.getlist('grades')
+    results = []
+    web_search = WebSearch()
+    active_tab = 'by_store'
+    if region and store:
+        search_grades = grades if grades else GRADES
+        store_code = STORE_DATA[region][store]
+        store_obj = Store(int(store_code), store, region)
+        items = web_search.worker_thread_scraping_by_store(
+            driver_path=None,  # 실제 환경에서는 드라이버 경로 필요
+            store=store_obj,
+            grades=search_grades
+        )
+        results.append({'store': store, 'items': items})
+    return render_template('index.html',
+        regions=list(STORE_DATA.keys()),
+        grades=GRADES,
+        store_data=STORE_DATA,
+        results=results,
+        selected_region=region,
+        selected_store=store,
+        selected_grades=grades,
+        active_tab=active_tab
+    )
+
+@app.route('/search_by_region', methods=['POST'])
+def search_by_region():
+    keyword = request.form.get('keyword', '').strip()
+    regions_multi = request.form.getlist('regions')
+    results = []
+    web_search = WebSearch()
+    active_tab = 'by_region'
+    if keyword and regions_multi:
         for reg in regions_multi:
             for store_name, store_code in STORE_DATA[reg].items():
                 store_obj = Store(int(store_code), store_name, reg)
@@ -82,7 +137,10 @@ def search():
         regions=list(STORE_DATA.keys()),
         grades=GRADES,
         store_data=STORE_DATA,
-        results=results
+        results=results,
+        selected_keyword=keyword,
+        selected_regions=regions_multi,
+        active_tab=active_tab
     )
 
 if __name__ == '__main__':
