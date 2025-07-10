@@ -1,6 +1,7 @@
 # 건담재고파인더
 
-<img width="1707" height="935" alt="스크린샷 2025-07-11 오전 1 02 03" src="https://github.com/user-attachments/assets/8277d08a-ceb1-4daf-bcdc-d22b337b9881" />
+<img width="1702" height="943" alt="스크린샷 2025-07-11 오전 1 17 58" src="https://github.com/user-attachments/assets/1499a75a-00b0-4a18-b888-742388abd4ab" />
+
 
 ```bash
 pyinstaller --onefile --windowed --name "건담재고파인더" \\
