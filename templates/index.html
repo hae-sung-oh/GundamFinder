@@ -1,0 +1,73 @@
+{% extends 'base.html' %} {% block content %}
+<h2 class="mb-4">롯데마트 건담 재고 파인더</h2>
+<form method="post" action="/search" id="searchForm">
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label for="region" class="form-label">지역 선택</label>
+      <select class="form-select" id="region" name="region" required>
+        <option value="">지역 선택</option>
+        {% for region in regions %}
+        <option value="{{ region }}">{{ region }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label for="store" class="form-label">매장 선택</label>
+      <select class="form-select" id="store" name="store">
+        <option value="">매장 선택</option>
+        <!-- JS로 동적 변경 -->
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label for="grades" class="form-label">등급 선택</label>
+      <div id="grades">
+        {% for grade in grades %}
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" name="grades" value="{{ grade }}" id="grade-{{ grade }}" />
+          <label class="form-check-label" for="grade-{{ grade }}">{{ grade }}</label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <label for="keyword" class="form-label">상품명(키워드) 검색</label>
+      <input type="text" class="form-control" id="keyword" name="keyword" placeholder="예: 건담, Exia 등" />
+    </div>
+    <div class="col-md-6">
+      <label for="regions" class="form-label">전체 지점 상품 검색 (지역 다중선택)</label>
+      <select class="form-select" id="regions" name="regions" multiple>
+        {% for region in regions %}
+        <option value="{{ region }}">{{ region }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-text">Ctrl(⌘) + 클릭으로 여러 지역 선택</div>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary">재고 확인 시작</button>
+</form>
+<hr />
+{% if results %} {% if results|length == 0 %}
+<script>
+  alert("현재 건담 재고가 없습니다.")
+</script>
+{% else %} {% include 'results.html' %} {% endif %} {% endif %} {% endblock %} {% block script %}
+<script>
+  // 지역별 매장 동적 변경
+  const storeData = {{ store_data | tojson | safe }};
+  document.getElementById('region').addEventListener('change', function() {
+    const region = this.value;
+    const storeSelect = document.getElementById('store');
+    storeSelect.innerHTML = '<option value="">매장 선택</option>';
+    if(region && storeData[region]) {
+      Object.keys(storeData[region]).forEach(function(store) {
+        const opt = document.createElement('option');
+        opt.value = store;
+        opt.textContent = store;
+        storeSelect.appendChild(opt);
+      });
+    }
+  });
+</script>
+{% endblock %}
