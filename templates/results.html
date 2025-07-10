@@ -1,0 +1,20 @@
+<table class="table table-bordered table-hover mt-4">
+  <thead class="table-light">
+    <tr>
+      <th>매장명</th>
+      <th>상품명</th>
+      <th>가격</th>
+      <th>재고</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for result in results %} {% for item in result['items'] %}
+    <tr>
+      <td>{{ result['store'] }}</td>
+      <td>{{ item.name }}</td>
+      <td>{{ item.price }}</td>
+      <td>{{ item.stock }}</td>
+    </tr>
+    {% endfor %} {% endfor %}
+  </tbody>
+</table>
