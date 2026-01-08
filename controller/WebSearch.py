@@ -7,6 +7,8 @@ from selenium.webdriver.chrome.service import Service
 from model.SearchItem import SearchItem
 from model.StoreResult import StoreResult
 
+from urllib.parse import quote, unquote
+
 
 class WebSearch:
     def __init__(self):
@@ -88,7 +90,7 @@ class WebSearch:
 
         payload = {
             "p_market": store.id,
-            "p_schWord": keyword,
+            "p_schWord": quote(keyword),
             "page": 1
         }
 
